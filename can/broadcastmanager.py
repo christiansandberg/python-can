@@ -7,6 +7,8 @@ Exposes several methods for transmitting cyclic messages.
 import can
 import abc
 import logging
+import threading
+import time
 
 log = logging.getLogger('can.bcm')
 log.debug("Loading base broadcast manager functionality")
@@ -62,6 +64,46 @@ class MultiRateCyclicSendTaskABC(CyclicSendTaskABC):
 
     def __init__(self, channel, message, count, initial_period, subsequent_period):
         super(MultiRateCyclicSendTaskABC, self).__init__(channel, message, subsequent_period)
+
+
+class SimpleCyclicSendTask(CyclicSendTaskABC):
+    """Fallback cyclic send task using thread."""
+
+    def __init__(self, channel, message, period, **config):
+        self.channel = channel
+        self.message = message
+        self.period = period
+        self.config = config
+        super(SimpleCyclicSendTask, self).__init__(None, message, period)
+
+        self.start()
+
+    def _bus_setup(self):
+        self.bus = can.interface.Bus(self.channel, **self.config)
+
+    def start(self):
+        self._bus_setup()
+
+        self.running = threading.Event()
+        self.running.set()
+
+        self._sender = threading.Thread(target=self.tx_thread)
+        self._sender.daemon = True
+
+        self._sender.start()
+
+    def stop(self):
+        self.running.clear()
+        self._sender.join(5)
+        self.bus.shutdown()
+
+    def tx_thread(self):
+        while self.running.is_set():
+            self.bus.send(self.message)
+            time.sleep(self.period)
+
+    def modify_data(self, message):
+        self.message = message
 
 
 def send_periodic(channel, message, period):

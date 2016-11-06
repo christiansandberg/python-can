@@ -77,8 +77,15 @@ class CyclicSendTask(CyclicSendTaskABC):
     @classmethod
     def __new__(cls, other, channel, *args, **kwargs):
 
+        if 'bustype' in kwargs:
+            can.rc['interface'] = kwargs['bustype']
+            del kwargs['bustype']
+
+            if can.rc['interface'] == 'socketcan':
+                can.rc['interface'] = choose_socketcan_implementation()
+
         # If can.rc doesn't look valid: load default
-        if 'interface' not in can.rc or 'channel' not in can.rc:
+        if 'interface' not in can.rc or 'channel' not in can.rc or can.rc['interface'] is None:
             can.log.debug("Loading default configuration")
             can.rc = load_config()
 
@@ -94,8 +101,9 @@ class CyclicSendTask(CyclicSendTaskABC):
             from can.interfaces.socketcan_native import CyclicSendTask as _nativeCyclicSendTask
             cls = _nativeCyclicSendTask
         else:
-            can.log.info("Current CAN interface doesn't support CyclicSendTask")
-
+            can.log.info("Using SimpleCyclicSendTask as fallback")
+            from can.broadcastmanager import SimpleCyclicSendTask as _simpleCyclicSendTask
+            cls = _simpleCyclicSendTask
         return cls(channel, *args, **kwargs)
 
 

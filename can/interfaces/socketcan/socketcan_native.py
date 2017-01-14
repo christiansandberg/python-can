@@ -155,16 +155,18 @@ class SocketCanBCMBase(object):
 
 class CyclicSendTask(SocketCanBCMBase, CyclicSendTaskABC):
 
-    def __init__(self, channel, message, period):
+    def __init__(self, channel, message, period, duration=None):
         """
 
         :param channel: The name of the CAN channel to connect to.
         :param message: The message to be sent periodically.
         :param period: The rate in seconds at which to send the message.
         """
-        super(CyclicSendTask, self).__init__(channel, message, period)
+        super(CyclicSendTask, self).__init__(channel, message, period, duration)
         self._tx_setup(message)
-        self.message = message
+        self.can_id = message.arbitration_id
+        if duration is not None:
+            threading.Timer(duration, self.stop).start()
 
     def _tx_setup(self, message):
         # Create a low level packed frame to pass to the kernel
@@ -193,6 +195,7 @@ class CyclicSendTask(SocketCanBCMBase, CyclicSendTaskABC):
         Note the Message must have the same :attr:`~can.Message.arbitration_id`.
         """
         assert message.arbitration_id == self.can_id, "You cannot modify the can identifier"
+        self.message = message
         self._tx_setup(message)
 
     def start(self):
@@ -409,13 +412,7 @@ class SocketcanNative_Bus(BusABC):
             raise can.CanError("can.socketcan.native failed to transmit")
 
     def send_periodic(self, msg, period, duration=None):
-        task = CyclicSendTask(self.channel, msg, period)
-
-        if duration is not None:
-            stop_timer = threading.Timer(duration, task.stop)
-            stop_timer.start()
-
-        return task
+        return CyclicSendTask(self.channel, msg, period, duration)
 
     def set_filters(self, can_filters=None):
         filter_struct = pack_filters(can_filters)

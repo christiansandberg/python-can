@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import abc
 import logging
+import can.broadcastmanager
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +76,11 @@ class BusABC(object):
             no duration is provided, the task will continue indefinitely.
         :return: A started :class:`can.CyclicTask` instance
         """
-        raise NotImplementedError("TODO")
+        if not hasattr(self, "cyclic_manager"):
+            self.cyclic_manager = can.broadcastmanager.SimpleCyclicSendManager(self)
+        task = can.broadcastmanager.SimpleCyclicSendTask(msg, period, duration)
+        self.cyclic_manager.add_task(task)
+        return task
 
     def __iter__(self):
         """Allow iteration on messages as they are received.

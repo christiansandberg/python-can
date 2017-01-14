@@ -129,12 +129,7 @@ class SocketcanCtypes_Bus(BusABC):
         logging.debug("Frame transmitted with %s bytes", bytes_sent)
 
     def send_periodic(self, msg, period, duration=None):
-        task = CyclicSendTask(self.channel, msg, period)
-
-        if duration is not None:
-            threading.Timer(duration, task.stop).start()
-
-        return task
+        return CyclicSendTask(self.channel, msg, period, duration)
 
 
 class SOCKADDR(ctypes.Structure):
@@ -415,17 +410,19 @@ class SocketCanCtypesBCMBase(object):
 
 class CyclicSendTask(SocketCanCtypesBCMBase, CyclicSendTaskABC):
 
-    def __init__(self, channel, message, period):
+    def __init__(self, channel, message, period, duration=None):
         """
 
         :param channel: The name of the CAN channel to connect to.
         :param message: The message to be sent periodically.
         :param period: The rate in seconds at which to send the message.
         """
-        super(CyclicSendTask, self).__init__(channel, message, period)
-        self.message = message
+        super(CyclicSendTask, self).__init__(channel, message, period, duration)
+        self.can_id = message.arbitration_id
         # Send the bcm message with opcode TX_SETUP to start the cyclic transmit
         self._tx_setup()
+        if duration is not None:
+            threading.Timer(duration, self.stop).start()
 
     def _tx_setup(self):
         message = self.message

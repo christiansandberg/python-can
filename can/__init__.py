@@ -23,6 +23,6 @@ from can.util import set_logging_level
 from can.message import Message
 from can.bus import BusABC
 from can.notifier import Notifier
-from can.broadcastmanager import send_periodic, CyclicSendTaskABC, MultiRateCyclicSendTaskABC
+from can.broadcastmanager import send_periodic, CyclicSendTaskABC
 from can.interfaces import VALID_INTERFACES
 from . import interface

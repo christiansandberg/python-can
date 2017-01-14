@@ -1,5 +1,5 @@
 import can
-from can.broadcastmanager import CyclicSendTaskABC, MultiRateCyclicSendTaskABC
+from can.broadcastmanager import CyclicSendTaskABC
 from can.util import load_config
 
 
@@ -89,19 +89,13 @@ class CyclicSendTask(CyclicSendTaskABC):
         elif config['interface'] == 'socketcan_native':
             from can.interfaces.socketcan.socketcan_native import CyclicSendTask as _nativeCyclicSendTask
             cls = _nativeCyclicSendTask
-        # CyclicSendTask has not been fully implemented on remote interface yet.
-        # Waiting for issue #80 which will change the API to make it easier for
-        # interfaces other than socketcan to implement it
-        #elif can.rc['interface'] == 'remote':
-        #    from can.interfaces.remote import CyclicSendTask as _remoteCyclicSendTask
-        #    cls = _remoteCyclicSendTask
         else:
             raise can.CanError("Current CAN interface doesn't support CyclicSendTask")
 
         return cls(config['channel'], *args, **kwargs)
 
 
-class MultiRateCyclicSendTask(MultiRateCyclicSendTaskABC):
+class MultiRateCyclicSendTask(object):
 
     @classmethod
     def __new__(cls, other, channel, *args, **kwargs):

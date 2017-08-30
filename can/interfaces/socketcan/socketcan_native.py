@@ -34,6 +34,7 @@ import can
 from can.interfaces.socketcan.socketcan_constants import *  # CAN_RAW, CAN_*_FLAG
 from can.interfaces.socketcan.socketcan_common import * # parseCanFilters
 from can import Message, BusABC
+from can.bus import AsyncMixin
 
 from can.broadcastmanager import ModifiableCyclicTaskABC, RestartableCyclicTaskABC, LimitedDurationCyclicSendTaskABC
 
@@ -367,7 +368,7 @@ def capturePacket(sock):
     return _CanPacket(timestamp, arbitration_id, CAN_ERR_FLAG, CAN_EFF_FLAG, CAN_RTR_FLAG, can_dlc, data)
 
 
-class SocketcanNative_Bus(BusABC):
+class SocketcanNative_Bus(BusABC, AsyncMixin):
     channel_info = "native socketcan channel"
 
     def __init__(self, channel, receive_own_messages=False, **kwargs):
@@ -396,6 +397,7 @@ class SocketcanNative_Bus(BusABC):
 
         bindSocket(self.socket, channel)
         super(SocketcanNative_Bus, self).__init__()
+        AsyncMixin.__init__(self, kwargs.get("loop"))
 
     def shutdown(self):
         self.socket.close()
@@ -466,6 +468,9 @@ class SocketcanNative_Bus(BusABC):
                                socket.CAN_RAW_FILTER,
                                filter_struct
                                )
+
+    def _start_callbacks(self):
+        self._loop.add_reader(self.socket.fileno(), self.message_received)
 
 
 if __name__ == "__main__":

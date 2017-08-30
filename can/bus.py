@@ -3,6 +3,10 @@ from __future__ import print_function, absolute_import
 
 import abc
 import logging
+try:
+    import asyncio
+except ImportError:
+    asyncio = None
 from can.broadcastmanager import ThreadBasedCyclicSendManager, ThreadBasedCyclicSendTask
 logger = logging.getLogger(__name__)
 
@@ -132,3 +136,29 @@ class BusABC(object):
         self.flush_tx_buffer()
 
     __metaclass__ = abc.ABCMeta
+
+
+class AsyncMixin(object):
+
+    def __init__(self, loop=None):
+        if loop is None:
+            loop = asyncio.get_event_loop()
+        self._loop = loop
+        self._callbacks = []
+
+    def on_message(self, cb):
+        if not self._callbacks:
+            self._start_callbacks()
+        self._callbacks.append(cb)
+
+    def _start_callbacks(self):
+        pass
+
+    def message_received(self):
+        msg = self.recv(0)
+        while msg is not None:
+            for cb in self._callbacks:
+                res = cb(msg)
+                if asyncio.iscoroutine(res):
+                    asyncio.ensure_future(res, loop=self._loop)
+            msg = self.recv(0)

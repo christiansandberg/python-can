@@ -11,8 +11,13 @@ import sys
 import time
 import logging
 import ctypes
+try:
+    import asyncio
+except ImportError:
+    asyncio = None
 
 from can import CanError, BusABC
+from can.bus import AsyncMixin
 from can import Message
 from can.interfaces.kvaser import constants as canstat
 
@@ -226,6 +231,18 @@ if __canlib is not None:
                                         restype=ctypes.c_short,
                                         errcheck=__check_status)
 
+    kvSetNotifyCallback = __get_canlib_function("kvSetNotifyCallback",
+                                                argtypes=[
+                                                    c_canHandle,
+                                                    ctypes.c_void_p,
+                                                    ctypes.c_void_p,
+                                                    ctypes.c_uint],
+                                                restype=ctypes.c_short,
+                                                errcheck=__check_status)
+
+    KV_CALLBACK = ctypes.WINFUNCTYPE(None, c_canHandle, ctypes.c_void_p,
+                                     ctypes.c_uint)
+
     if sys.platform == "win32":
         canGetVersionEx = __get_canlib_function("canGetVersionEx",
                                                 argtypes=[ctypes.c_uint],
@@ -266,7 +283,7 @@ BITRATE_OBJS = {1000000 : canstat.canBITRATE_1M,
                   10000 : canstat.canBITRATE_10K}
 
 
-class KvaserBus(BusABC):
+class KvaserBus(BusABC, AsyncMixin):
     """
     The CAN Bus implemented for the Kvaser interface.
     """
@@ -391,6 +408,7 @@ class KvaserBus(BusABC):
         self.pc_time_offset = None
 
         super(KvaserBus, self).__init__()
+        AsyncMixin.__init__(self, config.get('loop'))
 
     def set_filters(self, can_filters=None):
         """Apply filtering to all messages received by this Bus.
@@ -528,6 +546,13 @@ class KvaserBus(BusABC):
                  flags)
         if timeout:
             canWriteSync(self._write_handle, int(timeout * 1000))
+
+    def _start_callbacks(self):
+        kvSetNotifyCallback(self._read_handle, KV_CALLBACK(self._notify), None,
+                            canstat.canNOTIFY_RX)
+
+    def _notify(self, handle, context, event):
+        self._loop.call_soon_threadsafe(self.message_received)
 
     def flash(self, flash=True):
         """

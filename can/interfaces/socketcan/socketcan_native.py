@@ -469,8 +469,11 @@ class SocketcanNative_Bus(BusABC, AsyncMixin):
                                filter_struct
                                )
 
-    def _start_callbacks(self):
-        self._loop.add_reader(self.socket.fileno(), self.message_received)
+    def start_callbacks(self):
+        self._loop.add_reader(self.socket.fileno(), self.notify)
+
+    def stop_callbacks(self):
+        self._loop.remove_reader(self.socket.fileno())
 
 
 if __name__ == "__main__":

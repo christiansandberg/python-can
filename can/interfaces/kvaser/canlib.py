@@ -231,17 +231,17 @@ if __canlib is not None:
                                         restype=ctypes.c_short,
                                         errcheck=__check_status)
 
+    KV_CALLBACK = ctypes.WINFUNCTYPE(None, c_canHandle, ctypes.c_void_p,
+                                     ctypes.c_uint)
+
     kvSetNotifyCallback = __get_canlib_function("kvSetNotifyCallback",
                                                 argtypes=[
                                                     c_canHandle,
-                                                    ctypes.c_void_p,
+                                                    ctypes.POINTER(KV_CALLBACK),
                                                     ctypes.c_void_p,
                                                     ctypes.c_uint],
                                                 restype=ctypes.c_short,
                                                 errcheck=__check_status)
-
-    KV_CALLBACK = ctypes.WINFUNCTYPE(None, c_canHandle, ctypes.c_void_p,
-                                     ctypes.c_uint)
 
     if sys.platform == "win32":
         canGetVersionEx = __get_canlib_function("canGetVersionEx",
@@ -547,12 +547,15 @@ class KvaserBus(BusABC, AsyncMixin):
         if timeout:
             canWriteSync(self._write_handle, int(timeout * 1000))
 
-    def _start_callbacks(self):
+    def start_callbacks(self):
         kvSetNotifyCallback(self._read_handle, KV_CALLBACK(self._notify), None,
-                            canstat.canNOTIFY_RX)
+                            canstat.canNOTIFY_RX|canstat.canNOTIFY_ERROR)
+
+    def stop_callbacks(self):
+        kvSetNotifyCallback(self._read_handle, None, None, 0)
 
     def _notify(self, handle, context, event):
-        self._loop.call_soon_threadsafe(self.message_received)
+        self._loop.call_soon_threadsafe(self.notify)
 
     def flash(self, flash=True):
         """

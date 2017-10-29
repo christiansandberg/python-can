@@ -59,7 +59,7 @@ class VirtualBus(BusABC, AsyncMixin):
         for bus in self.channel:
             if bus is not self or self.receive_own_messages:
                 bus.queue.put(msg)
-                bus.message_received()
+                bus.notify()
         logger.log(9, 'Transmitted message:\n%s', msg)
 
     def shutdown(self):
@@ -73,3 +73,4 @@ if __name__ == "__main__":
 
     bus1.on_message(print)
     bus2.send(Message(arbitration_id=0x12345))
+    bus2.send(Message(arbitration_id=0x54321))

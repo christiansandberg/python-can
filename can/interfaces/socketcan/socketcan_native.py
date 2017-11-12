@@ -34,7 +34,7 @@ import can
 from can.interfaces.socketcan.socketcan_constants import *  # CAN_RAW, CAN_*_FLAG
 from can.interfaces.socketcan.socketcan_common import * # parseCanFilters
 from can import Message, BusABC
-from can.bus import AsyncMixin
+from can.async import AsyncMixin
 
 from can.broadcastmanager import ModifiableCyclicTaskABC, RestartableCyclicTaskABC, LimitedDurationCyclicSendTaskABC
 
@@ -469,10 +469,10 @@ class SocketcanNative_Bus(BusABC, AsyncMixin):
                                filter_struct
                                )
 
-    def start_callbacks(self):
-        self._loop.add_reader(self.socket.fileno(), self.notify)
+    def _start_callbacks(self):
+        self._loop.add_reader(self.socket.fileno(), self._notify)
 
-    def stop_callbacks(self):
+    def _stop_callbacks(self):
         self._loop.remove_reader(self.socket.fileno())
 
 

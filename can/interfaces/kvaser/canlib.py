@@ -17,7 +17,7 @@ except ImportError:
     asyncio = None
 
 from can import CanError, BusABC
-from can.bus import AsyncMixin
+from can.async import AsyncMixin
 from can import Message
 from can.interfaces.kvaser import constants as canstat
 
@@ -407,7 +407,7 @@ class KvaserBus(BusABC, AsyncMixin):
         '''
         self.pc_time_offset = None
 
-        super(KvaserBus, self).__init__()
+        BusABC.__init__(self)
         AsyncMixin.__init__(self, config.get('loop'))
 
     def set_filters(self, can_filters=None):
@@ -547,15 +547,13 @@ class KvaserBus(BusABC, AsyncMixin):
         if timeout:
             canWriteSync(self._write_handle, int(timeout * 1000))
 
-    def start_callbacks(self):
-        kvSetNotifyCallback(self._read_handle, KV_CALLBACK(self._notify), None,
+    def _start_callbacks(self):
+        kvSetNotifyCallback(self._read_handle,
+                            KV_CALLBACK(self._notify_threadsafe), None,
                             canstat.canNOTIFY_RX|canstat.canNOTIFY_ERROR)
 
-    def stop_callbacks(self):
+    def _stop_callbacks(self):
         kvSetNotifyCallback(self._read_handle, None, None, 0)
-
-    def _notify(self, handle, context, event):
-        self._loop.call_soon_threadsafe(self.notify)
 
     def flash(self, flash=True):
         """

@@ -16,6 +16,7 @@ class CanError(IOError):
     pass
 
 from can.listener import Listener, BufferedReader, RedirectReader
+from can.async import AsyncListener
 
 from can.io import Logger, Printer, LogReader
 from can.io import ASCWriter

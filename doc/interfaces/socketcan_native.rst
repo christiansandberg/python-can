@@ -23,6 +23,7 @@ Bus
 ---
 
 .. autoclass:: can.interfaces.socketcan.SocketcanNative_Bus
+    :inherited-members:
 
 
 Internals

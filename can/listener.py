@@ -62,3 +62,6 @@ class BufferedReader(Listener):
             return self.buffer.get(block=True, timeout=timeout)
         except queue.Empty:
             return None
+
+    def __len__(self):
+        return self.buffer.qsize()

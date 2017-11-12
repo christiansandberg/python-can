@@ -42,6 +42,7 @@ Contents:
    installation
    configuration
    api
+   async
    interfaces
    bin
    development

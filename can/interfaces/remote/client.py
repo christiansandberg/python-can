@@ -1,6 +1,7 @@
 import logging
 import socket
 import select
+import time
 import can
 from can.interfaces.remote import events
 from can.interfaces.remote import connection
@@ -18,7 +19,7 @@ def create_connection(address):
     return socket.create_connection(address)
 
 
-class RemoteBus(can.bus.BusABC):
+class RemoteBus(can.bus.BusABC, can.async.AsyncMixin):
     """CAN bus over a network connection bridge."""
 
     def __init__(self, channel, can_filters=None, **config):
@@ -62,20 +63,26 @@ class RemoteBus(can.bus.BusABC):
 
         self.channel = channel
 
+        can.async.AsyncMixin.__init__(self, **config)
+
     def _next_event(self, timeout=None):
         """Block until a new event has been received.
 
         :param float timeout: Max time in seconds to wait.
         :return: Next event received from socket (or None if timeout)
         """
-        event = self.conn.next_event()
-        while event is None:
-            if timeout is not None and not select.select([self.socket], [], [], timeout)[0]:
-                return None
+        start_time = time.time()
+        while True:
+            event = self.conn.next_event()
+            if event is not None:
+                return event
+            if timeout is not None:
+                remaining = timeout - (time.time() - start_time)
+                if remaining <= 0 or not select.select([self.socket], [], [], remaining)[0]:
+                    # Timeout
+                    return None
             data = self.socket.recv(256)
             self.conn.receive_data(data)
-            event = self.conn.next_event()
-        return event
 
     def recv(self, timeout=None):
         """Block waiting for a message from the Bus.
@@ -103,6 +110,12 @@ class RemoteBus(can.bus.BusABC):
             On failed transmission to socket.
         """
         self.send_event(events.CanMessage(msg))
+
+    def _start_callbacks(self):
+        self._loop.add_reader(self.socket.fileno(), self._notify)
+
+    def _stop_callbacks(self):
+        self._loop.remove_reader(self.socket.fileno())
 
     def send_event(self, event):
         self.conn.send_event(event)

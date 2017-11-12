@@ -14,7 +14,8 @@ try:
     import queue
 except ImportError:
     import Queue as queue
-from can.bus import BusABC, AsyncMixin
+from can.bus import BusABC
+from can.async import AsyncMixin
 
 
 logger = logging.getLogger(__name__)
@@ -40,8 +41,8 @@ class VirtualBus(BusABC, AsyncMixin):
         self.channel = channels[channel]
         self.channel.append(self)
 
-        super(VirtualBus, self).__init__(**config)
-        AsyncMixin.__init__(self)
+        BusABC.__init__(self, **config)
+        AsyncMixin.__init__(self, **config)
 
     def recv(self, timeout=None):
         try:
@@ -59,18 +60,9 @@ class VirtualBus(BusABC, AsyncMixin):
         for bus in self.channel:
             if bus is not self or self.receive_own_messages:
                 bus.queue.put(msg)
-                bus.notify()
+                bus._notify()
         logger.log(9, 'Transmitted message:\n%s', msg)
 
     def shutdown(self):
-        self.channel.remove(self.queue)
+        self.channel.remove(self)
 
-
-if __name__ == "__main__":
-    from can.message import Message
-    bus1 = VirtualBus(0)
-    bus2 = VirtualBus(0)
-
-    bus1.on_message(print)
-    bus2.send(Message(arbitration_id=0x12345))
-    bus2.send(Message(arbitration_id=0x54321))

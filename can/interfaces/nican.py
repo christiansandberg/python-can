@@ -10,6 +10,7 @@ import logging
 import sys
 
 from can import CanError, BusABC, Message
+from can.async import AsyncMixin
 
 logger = logging.getLogger(__name__)
 
@@ -102,11 +103,40 @@ if sys.platform == "win32":
         nican.ncWaitForState.errcheck = check_status
         nican.ncStatusToString.argtypes = [
             ctypes.c_int, ctypes.c_uint, ctypes.c_char_p]
+        Callback = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong,
+                                      ctypes.c_ulong, ctypes.c_long,
+                                      ctypes.c_void_p)
+        nican.ncCreateNotification.argtypes = [ctypes.c_ulong, ctypes.c_ulong,
+                                               ctypes.c_ulong, ctypes.c_void_p,
+                                               ctypes.POINTER(Callback)]
 else:
     nican = None
     logger.warning("NI-CAN interface is only available on Windows systems")
 
-class NicanBus(BusABC):
+
+def read_msg(handle):
+    raw_msg = RxMessageStruct()
+    nican.ncRead(handle, ctypes.sizeof(raw_msg), ctypes.byref(raw_msg))
+    # http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
+    timestamp = raw_msg.timestamp / 10000000.0 - 11644473600
+    is_remote_frame = raw_msg.frame_type == NC_FRMTYPE_REMOTE
+    is_error_frame = raw_msg.frame_type == NC_FRMTYPE_COMM_ERR
+    is_extended = bool(raw_msg.arb_id & NC_FL_CAN_ARBID_XTD)
+    arb_id = raw_msg.arb_id
+    if not is_error_frame:
+        arb_id &= 0x1FFFFFFF
+    dlc = raw_msg.dlc
+    msg = Message(timestamp=timestamp,
+                    is_remote_frame=is_remote_frame,
+                    is_error_frame=is_error_frame,
+                    extended_id=is_extended,
+                    arbitration_id=arb_id,
+                    dlc=dlc,
+                    data=raw_msg.data[:dlc])
+    return msg
+
+
+class NicanBus(BusABC, AsyncMixin):
     """
     The CAN Bus implemented for the NI-CAN interface.
     """
@@ -184,6 +214,9 @@ class NicanBus(BusABC):
         self.handle = ctypes.c_ulong()
         nican.ncOpenObject(channel, ctypes.byref(self.handle))
 
+        BusABC.__init__(self)
+        AsyncMixin.__init__(self, kwargs.get('loop'))
+
     def recv(self, timeout=None):
         """
         Read a message from NI-CAN.
@@ -213,25 +246,7 @@ class NicanBus(BusABC):
             else:
                 raise
 
-        raw_msg = RxMessageStruct()
-        nican.ncRead(self.handle, ctypes.sizeof(raw_msg), ctypes.byref(raw_msg))
-        # http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
-        timestamp = raw_msg.timestamp / 10000000.0 - 11644473600
-        is_remote_frame = raw_msg.frame_type == NC_FRMTYPE_REMOTE
-        is_error_frame = raw_msg.frame_type == NC_FRMTYPE_COMM_ERR
-        is_extended = bool(raw_msg.arb_id & NC_FL_CAN_ARBID_XTD)
-        arb_id = raw_msg.arb_id
-        if not is_error_frame:
-            arb_id &= 0x1FFFFFFF
-        dlc = raw_msg.dlc
-        msg = Message(timestamp=timestamp,
-                      is_remote_frame=is_remote_frame,
-                      is_error_frame=is_error_frame,
-                      extended_id=is_extended,
-                      arbitration_id=arb_id,
-                      dlc=dlc,
-                      data=raw_msg.data[:dlc])
-        return msg
+        return read_msg(self.handle)
 
     def send(self, msg, timeout=None):
         """
@@ -261,6 +276,21 @@ class NicanBus(BusABC):
         #state = ctypes.c_ulong()
         #nican.ncWaitForState(
         #    self.handle, NC_ST_WRITE_SUCCESS, int(timeout * 1000), ctypes.byref(state))
+
+    def _start_callbacks(self):
+        nican.ncCreateNotification(self.handle, NC_ST_READ_AVAIL,
+                                   NC_DURATION_INFINITE, None,
+                                   Callback(self._callback))
+
+    def _stop_callbacks(self):
+        nican.ncCreateNotification(self.handle, 0,
+                                   NC_DURATION_INFINITE, None, None)
+
+    def _callback(self, handle, state, status, ref_data):
+        if state & NC_ST_READ_AVAIL:
+            msg = read_msg(handle)
+            self._loop.call_soon_threadsafe(self._invoke_callbacks, msg)
+        return NC_ST_READ_AVAIL
 
     def flush_tx_buffer(self):
         """

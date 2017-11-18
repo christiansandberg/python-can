@@ -6,6 +6,7 @@ import time
 import logging
 
 from can import CanError, BusABC, Message
+from can.async import AsyncMixin
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ except Exception as e:
     iscan = None
     logger.warning("Failed to load IS-CAN driver: %s", e)
 else:
+    MessageHandler = ctypes.WINFUNCTYPE(None, ctypes.c_ubyte, ctypes.c_void_p)
+
     iscan.isCAN_DeviceInitEx.argtypes = [ctypes.c_ubyte, ctypes.c_ubyte]
     iscan.isCAN_DeviceInitEx.errcheck = check_status
     iscan.isCAN_DeviceInitEx.restype = ctypes.c_ubyte
@@ -41,11 +44,18 @@ else:
     iscan.isCAN_ReceiveMessageEx.restype = ctypes.c_ubyte
     iscan.isCAN_TransmitMessageEx.errcheck = check_status
     iscan.isCAN_TransmitMessageEx.restype = ctypes.c_ubyte
+    iscan.isCAN_StartMessageHandler.argtypes = [ctypes.c_ubyte,
+                                                ctypes.POINTER(MessageHandler),
+                                                ctypes.c_void_p]
+    iscan.isCAN_StartMessageHandler.errcheck = check_status
+    iscan.isCAN_StartMessageHandler.restype = ctypes.c_ubyte
+    iscan.isCAN_StopMessageHandler.errcheck = check_status
+    iscan.isCAN_StopMessageHandler.restype = ctypes.c_ubyte
     iscan.isCAN_CloseDevice.errcheck = check_status
     iscan.isCAN_CloseDevice.restype = ctypes.c_ubyte
 
 
-class IscanBus(BusABC):
+class IscanBus(BusABC, AsyncMixin):
     """isCAN interface"""
 
     BAUDRATES = {
@@ -79,7 +89,9 @@ class IscanBus(BusABC):
             raise ValueError("Invalid bitrate, choose one of " + valid_bitrates)
         self.poll_interval = poll_interval
         iscan.isCAN_DeviceInitEx(self.channel, self.BAUDRATES[bitrate])
-        super(IscanBus, self).__init__(channel, **kwargs)
+
+        BusABC.__init__(self, channel, **kwargs)
+        AsyncMixin.__init__(self, kwargs.get("loop"))
 
     def recv(self, timeout=None):
         raw_msg = MessageExStruct()
@@ -113,6 +125,14 @@ class IscanBus(BusABC):
                                   msg.dlc,
                                   CanData(*msg.data))
         iscan.isCAN_TransmitMessageEx(self.channel, ctypes.byref(raw_msg))
+
+    def _start_callbacks(self):
+        iscan.isCAN_StartMessageHandler(self.channel,
+                                        MessageHandler(self._notify_threadsafe),
+                                        None)
+
+    def _stop_callbacks(self):
+        iscan.isCAN_StopMessageHandler(self.channel)
 
     def shutdown(self):
         iscan.isCAN_CloseDevice(self.channel)

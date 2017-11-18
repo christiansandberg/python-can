@@ -76,15 +76,10 @@ class AsyncMixin(object):
             if asyncio.iscoroutine(res):
                 self._loop.create_task(res)
 
-    def async_recv(self):
-        # Create a Future instance
-        self._future = asyncio.Future(loop=self._loop)
-        return self._future
-
 
 class AsyncListener(Listener, AsyncMixin):
     """Feeds messages to an asyncio application."""
 
     def on_message_received(self, msg):
-        self._loop.call_soon_threadsafe(self.invoke_callbacks, msg)
+        self._loop.call_soon_threadsafe(self._invoke_callbacks, msg)
 

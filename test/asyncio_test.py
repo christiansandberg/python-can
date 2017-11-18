@@ -1,4 +1,8 @@
 import unittest
+try:
+    import asyncio
+except ImportError:
+    asyncio = None
 
 import can
 
@@ -8,7 +12,9 @@ CHANNEL = 'vcan0'
 
 class AsyncTest(unittest.TestCase):
 
+    @unittest.skipIf(asyncio is None, "Requires Python 3.4")
     def test_callback(self):
+        loop = asyncio.get_event_loop()
         bus1 = can.interface.Bus(bustype=INTERFACE, channel=CHANNEL)
         bus2 = can.interface.Bus(bustype=INTERFACE, channel=CHANNEL)
         listener = can.BufferedReader()
@@ -21,11 +27,18 @@ class AsyncTest(unittest.TestCase):
         bus2.send(msg1)
         bus2.send(msg2)
 
+        # Run loop once
+        loop.run_until_complete(asyncio.sleep(0))
+
         self.assertEqual(listener.get_message(), msg1)
         self.assertEqual(listener.get_message(), msg2)
 
         bus1.remove_callback(listener)
         bus2.send(msg1)
+
+        # Run loop once
+        loop.run_until_complete(asyncio.sleep(0))
+
         # No message should be sent to listener
         self.assertEqual(len(listener), 0)
 

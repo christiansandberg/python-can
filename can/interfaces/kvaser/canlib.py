@@ -231,13 +231,13 @@ if __canlib is not None:
                                         restype=ctypes.c_short,
                                         errcheck=__check_status)
 
-    KV_CALLBACK = ctypes.WINFUNCTYPE(None, c_canHandle, ctypes.c_void_p,
-                                     ctypes.c_uint)
+    KvCallback = ctypes.WINFUNCTYPE(None, c_canHandle, ctypes.c_void_p,
+                                    ctypes.c_uint)
 
     kvSetNotifyCallback = __get_canlib_function("kvSetNotifyCallback",
                                                 argtypes=[
                                                     c_canHandle,
-                                                    ctypes.POINTER(KV_CALLBACK),
+                                                    KvCallback,
                                                     ctypes.c_void_p,
                                                     ctypes.c_uint],
                                                 restype=ctypes.c_short,
@@ -548,8 +548,8 @@ class KvaserBus(BusABC, AsyncMixin):
             canWriteSync(self._write_handle, int(timeout * 1000))
 
     def _start_callbacks(self):
-        kvSetNotifyCallback(self._read_handle,
-                            KV_CALLBACK(self._notify_threadsafe), None,
+        self._kv_callback = KvCallback(self._notify_threadsafe)
+        kvSetNotifyCallback(self._read_handle, self._kv_callback, None,
                             canstat.canNOTIFY_RX|canstat.canNOTIFY_ERROR)
 
     def _stop_callbacks(self):

@@ -108,13 +108,17 @@ if sys.platform == "win32":
                                       ctypes.c_void_p)
         nican.ncCreateNotification.argtypes = [ctypes.c_ulong, ctypes.c_ulong,
                                                ctypes.c_ulong, ctypes.c_void_p,
-                                               ctypes.POINTER(Callback)]
+                                               Callback]
 else:
     nican = None
     logger.warning("NI-CAN interface is only available on Windows systems")
 
 
 def read_msg(handle):
+    """Read message from the specified handle.
+
+    :rtype: can.Message
+    """
     raw_msg = RxMessageStruct()
     nican.ncRead(handle, ctypes.sizeof(raw_msg), ctypes.byref(raw_msg))
     # http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
@@ -278,9 +282,10 @@ class NicanBus(BusABC, AsyncMixin):
         #    self.handle, NC_ST_WRITE_SUCCESS, int(timeout * 1000), ctypes.byref(state))
 
     def _start_callbacks(self):
+        self._cb_fun = Callback(self._callback)
         nican.ncCreateNotification(self.handle, NC_ST_READ_AVAIL,
                                    NC_DURATION_INFINITE, None,
-                                   Callback(self._callback))
+                                   self._cb_fun)
 
     def _stop_callbacks(self):
         nican.ncCreateNotification(self.handle, 0,

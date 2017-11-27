@@ -15,8 +15,8 @@ class AsyncTest(unittest.TestCase):
     @unittest.skipIf(asyncio is None, "Requires Python 3.4")
     def test_callback(self):
         loop = asyncio.get_event_loop()
-        bus1 = can.interface.Bus(bustype=INTERFACE, channel=CHANNEL)
-        bus2 = can.interface.Bus(bustype=INTERFACE, channel=CHANNEL)
+        bus1 = can.interface.Bus(bustype=INTERFACE, channel=CHANNEL, single_handle=True)
+        bus2 = can.interface.Bus(bustype=INTERFACE, channel=CHANNEL, single_handle=True)
         listener = can.BufferedReader()
 
         bus1.add_callback(listener)
@@ -28,7 +28,7 @@ class AsyncTest(unittest.TestCase):
         bus2.send(msg2)
 
         # Run loop once
-        loop.run_until_complete(asyncio.sleep(0))
+        loop.run_until_complete(asyncio.sleep(0.1))
 
         self.assertEqual(listener.get_message(), msg1)
         self.assertEqual(listener.get_message(), msg2)
@@ -37,7 +37,7 @@ class AsyncTest(unittest.TestCase):
         bus2.send(msg1)
 
         # Run loop once
-        loop.run_until_complete(asyncio.sleep(0))
+        loop.run_until_complete(asyncio.sleep(0.1))
 
         # No message should be sent to listener
         self.assertEqual(len(listener), 0)

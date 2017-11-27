@@ -35,7 +35,7 @@ except Exception as e:
     iscan = None
     logger.warning("Failed to load IS-CAN driver: %s", e)
 else:
-    MessageHandler = ctypes.WINFUNCTYPE(None, ctypes.c_ubyte, ctypes.c_void_p)
+    MessageHandler = ctypes.CFUNCTYPE(None, ctypes.c_ubyte, ctypes.c_void_p)
 
     iscan.isCAN_DeviceInitEx.argtypes = [ctypes.c_ubyte, ctypes.c_ubyte]
     iscan.isCAN_DeviceInitEx.errcheck = check_status
@@ -45,7 +45,7 @@ else:
     iscan.isCAN_TransmitMessageEx.errcheck = check_status
     iscan.isCAN_TransmitMessageEx.restype = ctypes.c_ubyte
     iscan.isCAN_StartMessageHandler.argtypes = [ctypes.c_ubyte,
-                                                ctypes.POINTER(MessageHandler),
+                                                MessageHandler,
                                                 ctypes.c_void_p]
     iscan.isCAN_StartMessageHandler.errcheck = check_status
     iscan.isCAN_StartMessageHandler.restype = ctypes.c_ubyte
@@ -127,9 +127,8 @@ class IscanBus(BusABC, AsyncMixin):
         iscan.isCAN_TransmitMessageEx(self.channel, ctypes.byref(raw_msg))
 
     def _start_callbacks(self):
-        iscan.isCAN_StartMessageHandler(self.channel,
-                                        MessageHandler(self._notify_threadsafe),
-                                        None)
+        self._msg_handler = MessageHandler(self._notify_threadsafe)
+        iscan.isCAN_StartMessageHandler(self.channel, self._msg_handler, None)
 
     def _stop_callbacks(self):
         iscan.isCAN_StopMessageHandler(self.channel)

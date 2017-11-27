@@ -24,6 +24,13 @@ the **interface** and **channel** before importing from ``can.interfaces``.
     bus = Bus()
 
 
+You can also specify the interface and channel for each Bus instance::
+
+    import can
+
+    bus = can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=500000)
+
+
 Configuration File
 ------------------
 
@@ -73,6 +80,8 @@ Lookup table of interface names:
 | ``"kvaser"``        | :doc:`interfaces/kvaser`            |
 +---------------------+-------------------------------------+
 | ``"serial"``        | :doc:`interfaces/serial`            |
++---------------------+-------------------------------------+
+| ``"slcan"``         | :doc:`interfaces/slcan`             |
 +---------------------+-------------------------------------+
 | ``"ixxat"``         | :doc:`interfaces/ixxat`             |
 +---------------------+-------------------------------------+

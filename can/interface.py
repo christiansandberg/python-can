@@ -20,7 +20,8 @@ BACKENDS = {
     'remote':           ('can.interfaces.remote', 'RemoteBus'),
     'virtual':          ('can.interfaces.virtual', 'VirtualBus'),
     'neovi':            ('can.interfaces.neovi_api', 'NeoVIBus'),
-    'vector':           ('can.interfaces.vector', 'VectorBus')
+    'vector':           ('can.interfaces.vector', 'VectorBus'),
+    'slcan':            ('can.interfaces.slcan', 'slcanBus')
 }
 
 

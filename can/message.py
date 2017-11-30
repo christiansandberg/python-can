@@ -11,6 +11,7 @@ class Message(object):
 
     def __init__(self, timestamp=0.0, is_remote_frame=False, extended_id=True,
                  is_error_frame=False, arbitration_id=0, dlc=None, data=None,
+                 is_fd=False, bitrate_switch=False, error_state_indicator=False,
                  channel=None):
 
         self.timestamp = timestamp
@@ -21,6 +22,10 @@ class Message(object):
         self.is_error_frame = is_error_frame
         self.arbitration_id = arbitration_id
         self.channel = channel
+
+        self.is_fd = is_fd
+        self.bitrate_switch = bitrate_switch
+        self.error_state_indicator = error_state_indicator
 
         if data is None or is_remote_frame:
             self.data = bytearray()
@@ -38,7 +43,10 @@ class Message(object):
         else:
             self.dlc = dlc
 
-        assert self.dlc <= 8, "data link count was {} but it must be less than or equal to 8".format(self.dlc)
+        if is_fd:
+            assert self.dlc <= 8 or self.dlc in (12, 16, 20, 24, 32, 48, 64)
+        else:
+            assert self.dlc <= 8, "data link count was {} but it must be less than or equal to 8".format(self.dlc)
 
     def __str__(self):
         field_strings = ["Timestamp: {0:15.6f}".format(self.timestamp)]

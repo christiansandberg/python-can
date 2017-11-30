@@ -373,7 +373,7 @@ def captureMessage(sock):
 class SocketcanNative_Bus(BusABC):
     channel_info = "native socketcan channel"
 
-    def __init__(self, channel, receive_own_messages=False, **kwargs):
+    def __init__(self, channel, receive_own_messages=False, fd=False, **kwargs):
         """
         :param str channel:
             The can interface name with which to create this bus. An example channel
@@ -396,6 +396,11 @@ class SocketcanNative_Bus(BusABC):
                                    struct.pack('i', receive_own_messages))
         except Exception as e:
             log.error("Could not receive own messages (%s)", e)
+
+        if fd:
+            self.socket.setsockopt(socket.SOL_CAN_RAW,
+                                   socket.CAN_RAW_FD_FRAMES,
+                                   struct.pack('i', 1))
 
         bindSocket(self.socket, channel)
         super(SocketcanNative_Bus, self).__init__()

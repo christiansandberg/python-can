@@ -60,6 +60,7 @@ if not HAS_NATIVE_SUPPORT:
             res = fcntl.ioctl(sock, SIOCGIFINDEX, data)
             idx, = struct.unpack("16xi", res)
         else:
+            # All channels
             idx = 0
         return struct.pack("HiLL", AF_CAN, idx, 0, 0)
 

@@ -135,6 +135,7 @@ class Back2BackTestCase(unittest.TestCase):
                           data=[0xff] * 48)
         self._send_and_receive(msg)
 
+
 @unittest.skipUnless(TEST_INTERFACE_SOCKETCAN, "skip testing of socketcan")
 class BasicTestSocketCan(Back2BackTestCase):
 
@@ -144,6 +145,7 @@ class BasicTestSocketCan(Back2BackTestCase):
     CHANNEL_2 = 'vcan0'
 
 
+@unittest.skipUnless(TEST_INTERFACE_SOCKETCAN, "skip testing of socketcan")
 class SocketCanBroadcastChannel(unittest.TestCase):
 
     def setUp(self):
@@ -155,7 +157,7 @@ class SocketCanBroadcastChannel(unittest.TestCase):
         self.bus2.shutdown()
 
     @unittest.skipIf(sys.version_info < (3, 4), 'Not supported on old Python')
-    def test_channel(self):
+    def test_broadcast_channel(self):
         self.bus1.send(can.Message(channel='vcan0'))
         recv_msg = self.bus2.recv(1)
         self.assertIsNotNone(recv_msg)

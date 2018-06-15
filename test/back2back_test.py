@@ -141,7 +141,14 @@ class BasicTestSocketCan(Back2BackTestCase):
     INTERFACE_1 = 'socketcan'
     CHANNEL_1 = 'vcan0'
     INTERFACE_2 = 'socketcan'
-    CHANNEL_2 = 'vcan0'
+    CHANNEL_2 = ''      # All interfaces
+
+    def test_channel(self):
+        msg = can.Message(channel='vcan0')
+        self.bus2.send(msg)
+        recv_msg = self.bus1.recv(self.TIMEOUT)
+        self._check_received_message(recv_msg, msg)
+        self.assertEqual(recv_msg.channel, 'vcan0')
 
 
 class TestThreadSafeBus(Back2BackTestCase):

@@ -141,13 +141,29 @@ class BasicTestSocketCan(Back2BackTestCase):
     INTERFACE_1 = 'socketcan'
     CHANNEL_1 = 'vcan0'
     INTERFACE_2 = 'socketcan'
-    CHANNEL_2 = ''      # All interfaces
+    CHANNEL_2 = 'vcan0'
 
+
+class SocketCanBroadcastChannel(unittest.TestCase):
+
+    def setUp(self):
+        self.bus1 = can.Bus(channel='', bustype='socketcan')
+        self.bus2 = can.Bus(channel='vcan0', bustype='socketcan')
+
+    def tearDown(self):
+        self.bus1.shutdown()
+        self.bus2.shutdown()
+
+    @unittest.skipIf(sys.version_info < (3, 4), 'Not supported on old Python')
     def test_channel(self):
-        msg = can.Message(channel='vcan0')
-        self.bus2.send(msg)
-        recv_msg = self.bus1.recv(self.TIMEOUT)
-        self._check_received_message(recv_msg, msg)
+        self.bus1.send(can.Message(channel='vcan0'))
+        recv_msg = self.bus2.recv(1)
+        self.assertIsNotNone(recv_msg)
+        self.assertEqual(recv_msg.channel, 'vcan0')
+
+        self.bus2.send(can.Message())
+        recv_msg = self.bus1.recv(1)
+        self.assertIsNotNone(recv_msg)
         self.assertEqual(recv_msg.channel, 'vcan0')
 
 

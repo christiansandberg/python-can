@@ -357,7 +357,8 @@ def capture_message(sock):
     # Fetching the Arb ID, DLC and Data
     try:
         if HAS_NATIVE_SUPPORT:
-            cf, (channel, _) = sock.recvfrom(CANFD_MTU)
+            cf, addr = sock.recvfrom(CANFD_MTU)
+            channel = addr[0]
         else:
             cf = sock.recv(CANFD_MTU)
             channel = None

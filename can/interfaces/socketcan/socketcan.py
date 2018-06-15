@@ -358,7 +358,7 @@ def capture_message(sock):
     try:
         if HAS_NATIVE_SUPPORT:
             cf, addr = sock.recvfrom(CANFD_MTU)
-            channel = addr[0]
+            channel = addr[0] if isinstance(addr, tuple) else addr
         else:
             cf = sock.recv(CANFD_MTU)
             channel = None

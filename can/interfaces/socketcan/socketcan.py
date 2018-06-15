@@ -55,9 +55,12 @@ if not HAS_NATIVE_SUPPORT:
 
     def get_addr(sock, channel):
         """Get sockaddr for a channel."""
-        data = struct.pack("16si", channel.encode(), 0)
-        res = fcntl.ioctl(sock, SIOCGIFINDEX, data)
-        idx, = struct.unpack("16xi", res)
+        if channel:
+            data = struct.pack("16si", channel.encode(), 0)
+            res = fcntl.ioctl(sock, SIOCGIFINDEX, data)
+            idx, = struct.unpack("16xi", res)
+        else:
+            idx = 0
         return struct.pack("HiLL", AF_CAN, idx, 0, 0)
 
 

@@ -267,12 +267,17 @@ class BLFWriter(Listener):
         self.channel = channel
         # Header will be written after log is done
         self.fp.write(b"\x00" * FILE_HEADER_SIZE)
-        self.cache = []
-        self.cache_size = 0
         self.count_of_objects = 0
         self.uncompressed_size = FILE_HEADER_SIZE
         self.start_timestamp = None
         self.stop_timestamp = None
+        self._reset_buffer()
+
+    def _reset_buffer(self):
+        self._buffer = []
+        self._compressed_buffer_size = 0
+        self._uncompressed_buffer_size = 0
+        self._compress_obj = zlib.compressobj(self.COMPRESSION_LEVEL)
 
     def on_message_received(self, msg):
         channel = channel2int(msg.channel)
@@ -346,46 +351,48 @@ class BLFWriter(Listener):
             b"LOBJ", header_size, 1, obj_size, obj_type)
         obj_header = OBJ_HEADER_V1_STRUCT.pack(TIME_ONE_NANS, 0, 0, max(timestamp, 0))
 
-        self.cache.append(base_header)
-        self.cache.append(obj_header)
-        self.cache.append(data)
+        self._add_chunk(base_header)
+        self._add_chunk(obj_header)
+        self._add_chunk(data)
         padding_size = len(data) % 4
         if padding_size:
-            self.cache.append(b"\x00" * padding_size)
-
-        self.cache_size += obj_size + padding_size
+            self._add_chunk(b"\x00" * padding_size)
         self.count_of_objects += 1
-        if self.cache_size >= self.MAX_CACHE_SIZE:
+
+    def _add_chunk(self, chunk):
+        compressed = self._compress_obj.compress(chunk)
+        self._add_compressed_chunk(compressed)
+        self._uncompressed_buffer_size += len(chunk)
+        if self._uncompressed_buffer_size >= self.MAX_CACHE_SIZE:
             self._flush()
+
+    def _add_compressed_chunk(self, compressed):
+        self._buffer.append(compressed)
+        self._compressed_buffer_size += len(compressed)        
 
     def _flush(self):
         """Compresses and writes data in the cache to file."""
         if self.fp.closed:
             return
-        cache = b"".join(self.cache)
-        if not cache:
-            # Nothing to write
-            return
-        uncompressed_data = cache[:self.MAX_CACHE_SIZE]
-        # Save data that comes after max size to next round
-        tail = cache[self.MAX_CACHE_SIZE:]
-        self.cache = [tail]
-        self.cache_size = len(tail)
-        compressed_data = zlib.compress(uncompressed_data,
-                                        self.COMPRESSION_LEVEL)
+        tail = self._compress_obj.flush()
+        self._add_compressed_chunk(tail)
+
         obj_size = (OBJ_HEADER_V1_STRUCT.size + LOG_CONTAINER_STRUCT.size +
-                    len(compressed_data))
+                    self._compressed_buffer_size)
         base_header = OBJ_HEADER_BASE_STRUCT.pack(
             b"LOBJ", OBJ_HEADER_BASE_STRUCT.size, 1, obj_size, LOG_CONTAINER)
         container_header = LOG_CONTAINER_STRUCT.pack(
-            ZLIB_DEFLATE, len(uncompressed_data))
+            ZLIB_DEFLATE, self._uncompressed_buffer_size)
         self.fp.write(base_header)
         self.fp.write(container_header)
-        self.fp.write(compressed_data)
+        for chunk in self._buffer:
+            self.fp.write(chunk)
         # Write padding bytes
         self.fp.write(b"\x00" * (obj_size % 4))
-        self.uncompressed_size += OBJ_HEADER_V1_STRUCT.size + LOG_CONTAINER_STRUCT.size
-        self.uncompressed_size += len(uncompressed_data)
+        self.uncompressed_size += len(base_header)
+        self.uncompressed_size += len(container_header)
+        self.uncompressed_size += self._uncompressed_buffer_size
+        self._reset_buffer()
 
     def stop(self):
         """Stops logging and closes the file."""

@@ -17,9 +17,11 @@ from can.interfaces.socketcan.socketcan import (
     build_bcm_update_header,
     BcmMsgHead,
 )
-from can.interfaces.socketcan.constants import (
+from socket import (
     CAN_BCM_TX_DELETE,
     CAN_BCM_TX_SETUP,
+)
+from can.interfaces.socketcan.constants import (
     SETTIMER,
     STARTTIMER,
     TX_COUNTEVT,

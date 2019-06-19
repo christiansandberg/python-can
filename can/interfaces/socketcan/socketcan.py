@@ -26,7 +26,16 @@ from can.broadcastmanager import (
     RestartableCyclicTaskABC,
     LimitedDurationCyclicSendTaskABC,
 )
-from can.interfaces.socketcan.constants import *  # CAN_RAW, CAN_*_FLAG
+from can.interfaces.socketcan.constants import *
+from socket import (
+    CAN_BCM_TX_SETUP,
+    CAN_BCM_TX_DELETE,
+    SOL_CAN_RAW,
+    CAN_RAW_FILTER,
+    CAN_RAW_ERR_FILTER,
+    CAN_RAW_RECV_OWN_MSGS,
+    CAN_RAW_FD_FRAMES,
+)
 from can.interfaces.socketcan.utils import pack_filters, find_available_interfaces
 
 
@@ -238,7 +247,7 @@ def dissect_can_frame(frame):
 
 def create_bcm_socket(channel):
     """create a broadcast manager socket and connect to the given interface"""
-    s = socket.socket(PF_CAN, socket.SOCK_DGRAM, CAN_BCM)
+    s = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM, socket.CAN_BCM)
     s.connect((channel,))
     return s
 
@@ -382,7 +391,7 @@ def create_socket():
     """Creates a raw CAN socket. The socket will
     be returned unbound to any interface.
     """
-    sock = socket.socket(PF_CAN, socket.SOCK_RAW, CAN_RAW)
+    sock = socket.socket(socket.PF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
 
     log.info("Created a socket")
 
